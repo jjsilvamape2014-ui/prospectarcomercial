@@ -1,0 +1,31 @@
+name: diag-rede
+
+on:
+  workflow_dispatch:
+
+jobs:
+  testar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Testar acesso as fontes
+        run: |
+          echo "=== roteador ==="
+          curl -sS --max-time 15 https://ipinfo.io/ip || echo "falhou ipinfo"
+          echo
+          echo "=== controle: site fora do Brasil ==="
+          curl -sS -o /dev/null -w "  http=%{http_code} connect=%{time_connect}s total=%{time_total}s\n" \
+            --connect-timeout 15 --max-time 25 https://example.com || echo "  FALHOU example.com"
+          echo "=== controle: DOE-PA (ioepa) ==="
+          curl -sS -o /dev/null -w "  http=%{http_code} connect=%{time_connect}s total=%{time_total}s\n" \
+            --connect-timeout 20 --max-time 40 \
+            "https://www.ioepa.com.br/arquivos/2026/2026.10.06.DOE.pdf" || echo "  FALHOU ioepa"
+          echo "=== DOM Belem (API) ==="
+          curl -sS -o /dev/null -w "  http=%{http_code} connect=%{time_connect}s total=%{time_total}s\n" \
+            --connect-timeout 30 --max-time 60 \
+            "https://sistemas.belem.pa.gov.br/diario-consulta-api/diarios?dataRecebidoInicio=2026-10-04&dataRecebidoFim=2026-10-09" \
+            || echo "  FALHOU Belem"
+          echo "=== DNS de Belem ==="
+          getent hosts sistemas.belem.pa.gov.br || echo "  DNS nao resolveu"
+          echo "=== rota ate Belem ==="
+          timeout 35 traceroute -n -w 2 -m 15 sistemas.belem.pa.gov.br 2>/dev/null | head -20 || echo "  traceroute indisponivel"
