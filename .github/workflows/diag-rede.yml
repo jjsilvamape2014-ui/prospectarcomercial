@@ -10,22 +10,28 @@ jobs:
     steps:
       - name: Testar acesso as fontes
         run: |
-          echo "=== roteador ==="
-          curl -sS --max-time 15 https://ipinfo.io/ip || echo "falhou ipinfo"
+          t() {
+            printf "  %-52s " "$1"
+            curl -sS -o /dev/null -w "http=%{http_code} connect=%{time_connect}s total=%{time_total}s\n" \
+              --connect-timeout 12 --max-time 25 "$1" 2>&1 | tail -1
+          }
+          echo "=== IP do runner ==="
+          curl -sS --max-time 10 https://ipinfo.io/ip; echo
           echo
-          echo "=== controle: site fora do Brasil ==="
-          curl -sS -o /dev/null -w "  http=%{http_code} connect=%{time_connect}s total=%{time_total}s\n" \
-            --connect-timeout 15 --max-time 25 https://example.com || echo "  FALHOU example.com"
-          echo "=== controle: DOE-PA (ioepa) ==="
-          curl -sS -o /dev/null -w "  http=%{http_code} connect=%{time_connect}s total=%{time_total}s\n" \
-            --connect-timeout 20 --max-time 40 \
-            "https://www.ioepa.com.br/arquivos/2026/2026.10.06.DOE.pdf" || echo "  FALHOU ioepa"
-          echo "=== DOM Belem (API) ==="
-          curl -sS -o /dev/null -w "  http=%{http_code} connect=%{time_connect}s total=%{time_total}s\n" \
-            --connect-timeout 30 --max-time 60 \
-            "https://sistemas.belem.pa.gov.br/diario-consulta-api/diarios?dataRecebidoInicio=2026-10-04&dataRecebidoFim=2026-10-09" \
-            || echo "  FALHOU Belem"
-          echo "=== DNS de Belem ==="
-          getent hosts sistemas.belem.pa.gov.br || echo "  DNS nao resolveu"
-          echo "=== rota ate Belem ==="
-          timeout 35 traceroute -n -w 2 -m 15 sistemas.belem.pa.gov.br 2>/dev/null | head -20 || echo "  traceroute indisponivel"
+          echo "=== controles ==="
+          t "https://example.com/"
+          t "https://www.ioepa.com.br/"
+          echo
+          echo "=== dominio de Belem ==="
+          t "https://sistemas.belem.pa.gov.br/"
+          t "http://sistemas.belem.pa.gov.br/"
+          t "https://www.belem.pa.gov.br/"
+          t "https://belem.pa.gov.br/"
+          echo
+          echo "=== DNS ==="
+          for h in sistemas.belem.pa.gov.br www.belem.pa.gov.br belem.pa.gov.br; do
+            printf "  %-32s " "$h"; getent hosts "$h" || echo "(nao resolve)"
+          done
+          echo
+          echo "=== traceroute (máx 12 saltos) ==="
+          timeout 40 traceroute -n -w 2 -m 12 -q 1 187.73.105.151 2>/dev/null | tail -14 || echo "  indisponivel"
