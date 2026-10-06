@@ -1,0 +1,35 @@
+name: Robô DOE-PA (prospecção de obras)
+
+on:
+  schedule:
+    - cron: "50 10 * * *"   # todo dia às 07:50 de Belém (10:50 UTC)
+  workflow_dispatch:
+    inputs:
+      data:
+        description: "Data específica (AAAA-MM-DD). Vazio = últimos 3 dias"
+        required: false
+      dias:
+        description: "Quantos dias para trás (quando a data estiver vazia)"
+        required: false
+        default: "3"
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Rodar robô
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          CONTATO_NOMINATIM: ${{ secrets.CONTATO_NOMINATIM }}
+        run: |
+          if [ -n "${{ github.event.inputs.data }}" ]; then
+            python robo_doe.py --data "${{ github.event.inputs.data }}"
+          else
+            python robo_doe.py --dias "${{ github.event.inputs.dias || '3' }}"
+          fi
